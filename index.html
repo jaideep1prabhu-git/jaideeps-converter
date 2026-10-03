@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jaideep's Converter</title>
+    
+    <!-- PWA Manifest & iOS Specific Meta Tags -->
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Jaideep's Converter">
+    
+    <!-- Explicit iOS Apple Touch Icon (Bypasses Manifest Bug on iPhones) -->
+    <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/512/apple-notes.png">
+    
+    <!-- Standard PWA Manifest -->
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Jaideep's%20Converter%22%2C%22short_name%22%3A%22Converter%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%2310b981%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fimg.icons8.com%2Ffluency%2F512%2Fapple-notes.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            dark: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JSZip for bulk downloads -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Mammoth.js for Word .docx parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- html2canvas for visual HTML-to-PDF rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- PDF.js for PDF reading/text extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Dark Mode Glass */
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* Light Mode Warm Beige / Cream Theme */
+        html.light body {
+            background-color: #f5f2eb !important;
+            color: #2c241d !important;
+        }
+        html.light header.glass {
+            background: rgba(250, 248, 243, 0.9) !important;
+            border-bottom: 1px solid rgba(180, 165, 145, 0.3) !important;
+        }
+        html.light .glass {
+            background: rgba(255, 253, 249, 0.85) !important;
+            border: 1px solid rgba(180, 165, 145, 0.25) !important;
+            box-shadow: 0 10px 25px -5px rgba(44, 36, 29, 0.05);
+        }
+        html.light .text-white {
+            color: #2c241d !important;
+        }
+        html.light .text-slate-200, html.light .text-slate-300, html.light .text-slate-400 {
+            color: #5c5147 !important;
+        }
+        html.light .bg-slate-900 {
+            background-color: #eae5dc !important;
+        }
+        html.light .bg-slate-950 {
+            background-color: #fdfbf7 !important;
+        }
+        html.light .border-slate-800, html.light .border-slate-700 {
+            border-color: #d8ccd0 !important;
+        }
+        
+        #render-container img { max-width: 100%; height: auto; display: block; margin: 0 auto; border: none; outline: none; }
+        #render-container table { width: 100%; border-collapse: collapse; margin: 0; background-color: #ffffff; }
+        #render-container td { border: none !important; padding: 0 !important; background-color: #ffffff; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col justify-between selection:bg-emerald-500 selection:text-white transition-colors duration-200" id="app-body">
+
+    <!-- Header -->
+    <header class="glass sticky top-0 z-50 border-b border-slate-800 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <span class="text-slate-950 text-lg font-extrabold tracking-tight">JP</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-white dark:via-slate-200 dark:to-emerald-400 bg-clip-text text-transparent">Jaideep's Converter</h1>
+                    <p class="text-xs text-stone-600 dark:text-slate-400">All-in-One Secure Local File & Document Suite</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2"></span>
+                    100% Client-Side & Secure
+                </span>
+                <button onclick="toggleTheme()" class="w-10 h-10 rounded-xl bg-stone-200 dark:bg-slate-900 text-stone-700 dark:text-slate-300 hover:text-emerald-700 dark:hover:text-emerald-400 border border-stone-300 dark:border-slate-800 flex items-center justify-center transition-colors">
+                    <i id="theme-icon" class="fa-solid fa-sun"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full flex-grow">
+        
+        <!-- Toast Notification Area -->
+        <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+        <!-- Mode Selector Tabs -->
+        <div class="flex flex-wrap gap-2 mb-6">
+            <button onclick="switchTab('converter')" id="tab-converter" class="px-4 py-2.5 rounded-xl font-semibold text-sm transition-all bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
+                <i class="fa-solid fa-exchange-alt mr-2"></i> Converter
+            </button>
+            <button onclick="switchTab('img-compressor')" id="tab-img-compressor" class="px-4 py-2.5 rounded-xl font-semibold text-sm transition-all bg-stone-200 dark:bg-slate-900 text-stone-700 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-white border border-stone-300 dark:border-slate-800">
+                <i class="fa-solid fa-compress mr-2"></i> Image Compressor & Resizer
+            </button>
+            <button onclick="switchTab('doc-compressor')" id="tab-doc-compressor" class="px-4 py-2.5 rounded-xl font-semibold text-sm transition-all bg-stone-200 dark:bg-slate-900 text-stone-700 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-white border border-stone-300 dark:border-slate-800">
+                <i class="fa-solid fa-file-pdf mr-2"></i> Doc / PDF Compressor
+            </button>
+            <button onclick="switchTab('base64')" id="tab-base64" class="px-4 py-2.5 rounded-xl font-semibold text-sm transition-all bg-stone-200 dark:bg-slate-900 text-stone-700 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-white border border-stone-300 dark:border-slate-800">
+                <i class="fa-solid fa-code mr-2"></i> Base64 Suite
+            </button>
+        </div>
+
+        <!-- TAB 1: Converter Dropzone -->
+        <div id="section-converter" class="space-y-8">
+            <div class="glass rounded-3xl p-8 shadow-2xl border border-slate-800 relative overflow-hidden group">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-white mb-2">Smart Converter Dropzone</h2>
+                    <p class="text-sm text-slate-400 max-w-lg mx-auto">Drop Images (JPG, JPEG, PNG, WebP, GIF, BMP), Word (.docx), PDF, or Google Docs (.html).</p>
+                </div>
+                <div id="drop-zone-conv" class="border-2 border-dashed border-stone-300 dark:border-slate-700 hover:border-emerald-500 rounded-2xl p-10 text-center cursor-pointer transition-all bg-stone-100/70 dark:bg-slate-900/40 hover:bg-stone-200/60 dark:hover:bg-slate-900/70 relative">
+                    <input type="file" id="file-input-conv" multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div class="flex flex-col items-center justify-center space-y-3">
+                        <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl shadow-inner">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <div>
+                            <p class="text-base font-semibold text-stone-800 dark:text-slate-200">Drag & drop files here, or <span class="text-emerald-600 dark:text-emerald-400 underline underline-offset-4">browse</span></p>
+                            <p class="text-xs text-stone-500 dark:text-slate-500 mt-1">Supports JPG, JPEG, PNG, WebP, GIF, BMP, Word, PDF, Google Docs</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: Image Compressor & Resizer -->
+        <div id="section-img-compressor" class="space-y-6 hidden">
+            <div class="glass rounded-3xl p-8 shadow-2xl border border-slate-800">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-white mb-2">Image Compressor & Resizer</h2>
+                    <p class="text-sm text-slate-400 max-w-lg mx-auto">Upload images, adjust quality and scale dimensions, then compress.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="p-4 rounded-xl bg-stone-100 dark:bg-slate-900/80 border border-stone-300 dark:border-slate-800">
+                        <label class="block text-sm font-semibold text-stone-800 dark:text-slate-200 mb-1">Compression Quality</label>
+                        <p class="text-xs text-stone-500 dark:text-slate-400 mb-3">Lower percentage = smaller file size.</p>
+                        <div class="flex items-center space-x-3">
+                            <input type="range" id="img-comp-slider" min="10" max="100" value="80" class="w-full accent-emerald-500 cursor-pointer" oninput="updateImgCompVal(this.value)">
+                            <div class="flex items-center space-x-1 bg-white dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-stone-300 dark:border-slate-800 shrink-0">
+                                <input type="number" id="img-comp-input" min="1" max="100" value="80" class="w-10 bg-transparent text-right text-sm font-semibold text-emerald-600 dark:text-emerald-400 focus:outline-none" oninput="updateImgCompVal(this.value)">
+                                <span class="text-xs text-stone-500 dark:text-slate-400">%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4 rounded-xl bg-stone-100 dark:bg-slate-900/80 border border-stone-300 dark:border-slate-800">
+                        <label class="block text-sm font-semibold text-stone-800 dark:text-slate-200 mb-1">Dimension Scale (Resize)</label>
+                        <p class="text-xs text-stone-500 dark:text-slate-400 mb-3">Scale down width and height proportionally.</p>
+                        <div class="flex items-center space-x-3">
+                            <input type="range" id="img-scale-slider" min="10" max="100" value="100" class="w-full accent-teal-500 cursor-pointer" oninput="updateImgScaleVal(this.value)">
+                            <div class="flex items-center space-x-1 bg-white dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-stone-300 dark:border-slate-800 shrink-0">
+                                <input type="number" id="img-scale-input" min="10" max="100" value="100" class="w-10 bg-transparent text-right text-sm font-semibold text-teal-600 dark:text-teal-400 focus:outline-none" oninput="updateImgScaleVal(this.value)">
+                                <span class="text-xs text-stone-500 dark:text-slate-400">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="drop-zone-img" class="border-2 border-dashed border-stone-300 dark:border-slate-700 hover:border-emerald-500 rounded-2xl p-10 text-center cursor-pointer transition-all bg-stone-100/70 dark:bg-slate-900/40 hover:bg-stone-200/60 dark:hover:bg-slate-900/70 relative">
+                    <input type="file" id="file-input-img" multiple accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div class="flex flex-col items-center justify-center space-y-3">
+                        <div class="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl shadow-inner">
+                            <i class="fa-solid fa-images"></i>
+                        </div>
+                        <p class="text-base font-semibold text-stone-800 dark:text-slate-200">Drop images here to queue for compression & resizing</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Doc / PDF Compressor -->
+        <div id="section-doc-compressor" class="space-y-6 hidden">
+            <div class="glass rounded-3xl p-8 shadow-2xl border border-slate-800">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-white mb-2">Doc / PDF Compressor</h2>
+                    <p class="text-sm text-slate-400 max-w-lg mx-auto">Upload PDF or Word files, set quality scale, and click compress.</p>
+                </div>
+                <div class="mb-6 p-4 rounded-xl bg-stone-100 dark:bg-slate-900/80 border border-stone-300 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-stone-800 dark:text-slate-200">Document Image Quality / Scale</label>
+                        <p class="text-xs text-stone-500 dark:text-slate-400">Controls clarity vs file reduction.</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <input type="range" id="doc-comp-slider" min="20" max="100" value="75" class="w-48 accent-teal-500 cursor-pointer" oninput="updateDocCompVal(this.value)">
+                        <div class="flex items-center space-x-1 bg-white dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-stone-300 dark:border-slate-800">
+                            <input type="number" id="doc-comp-input" min="10" max="100" value="75" class="w-12 bg-transparent text-right text-sm font-semibold text-teal-600 dark:text-teal-400 focus:outline-none" oninput="updateDocCompVal(this.value)">
+                            <span class="text-xs text-stone-500 dark:text-slate-400">%</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="drop-zone-doc" class="border-2 border-dashed border-stone-300 dark:border-slate-700 hover:border-teal-500 rounded-2xl p-10 text-center cursor-pointer transition-all bg-stone-100/70 dark:bg-slate-900/40 hover:bg-stone-200/60 dark:hover:bg-slate-900/70 relative">
+                    <input type="file" id="file-input-doc" multiple accept=".pdf,.docx,.html" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div class="flex flex-col items-center justify-center space-y-3">
+                        <div class="w-16 h-16 rounded-2xl bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center text-2xl shadow-inner">
+                            <i class="fa-solid fa-file-zipper"></i>
+                        </div>
+                        <p class="text-base font-semibold text-stone-800 dark:text-slate-200">Drop PDF, Word (.docx), or Google Doc (.html) files here to queue</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: Base64 Suite -->
+        <div id="section-base64" class="space-y-6 hidden">
+            <div class="glass rounded-3xl p-8 shadow-2xl border border-slate-800 space-y-6">
+                <div class="text-center">
+                    <h2 class="text-2xl font-bold text-white mb-2">Base64 Encoder & Decoder Suite</h2>
+                    <p class="text-sm text-slate-400 max-w-lg mx-auto">Convert any file/image to Base64 code or decode Base64 back into a downloadable file.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Encoder Card -->
+                    <div class="p-6 rounded-2xl bg-stone-100 dark:bg-slate-900/60 border border-stone-300 dark:border-slate-800 space-y-4">
+                        <h3 class="text-base font-bold text-emerald-600 dark:text-emerald-400"><i class="fa-solid fa-file-arrow-up mr-2"></i> File to Base64 Encoder</h3>
+                        <input type="file" id="b64-enc-input" class="block w-full text-xs text-stone-600 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer" onchange="encodeFileToBase64(this)">
+                        <textarea id="b64-enc-output" readonly placeholder="Base64 output string will appear here..." class="w-full h-32 bg-white dark:bg-slate-950 text-xs text-stone-800 dark:text-slate-300 p-3 rounded-xl border border-stone-300 dark:border-slate-800 focus:outline-none resize-none"></textarea>
+                        <button onclick="copyBase64Output()" class="w-full py-2.5 rounded-xl bg-stone-200 dark:bg-slate-800 hover:bg-stone-300 dark:hover:bg-slate-700 text-stone-800 dark:text-white font-medium text-xs transition-all border border-stone-300 dark:border-slate-700">
+                            <i class="fa-solid fa-copy mr-1.5"></i> Copy Base64 String
+                        </button>
+                    </div>
+                    <!-- Decoder Card -->
+                    <div class="p-6 rounded-2xl bg-stone-100 dark:bg-slate-900/60 border border-stone-300 dark:border-slate-800 space-y-4">
+                        <h3 class="text-base font-bold text-teal-600 dark:text-teal-400"><i class="fa-solid fa-file-arrow-down mr-2"></i> Base64 to File Decoder</h3>
+                        <input type="text" id="b64-dec-filename" placeholder="Output filename (e.g., image.png, doc.pdf)" class="w-full bg-white dark:bg-slate-950 text-xs text-stone-800 dark:text-slate-200 px-3 py-2 rounded-xl border border-stone-300 dark:border-slate-800 focus:outline-none">
+                        <textarea id="b64-dec-input" placeholder="Paste Base64 string here (data:image/... or raw base64)..." class="w-full h-24 bg-white dark:bg-slate-950 text-xs text-stone-800 dark:text-slate-300 p-3 rounded-xl border border-stone-300 dark:border-slate-800 focus:outline-none resize-none"></textarea>
+                        <button onclick="decodeBase64ToFile()" class="w-full py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium text-xs transition-all shadow-md">
+                            <i class="fa-solid fa-download mr-1.5"></i> Decode & Download File
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden container for visual layout rendering -->
+        <div id="render-container" style="position: absolute; left: -9999px; top: -9999px; width: 750px; background: white; color: black; padding: 20px; font-family: Arial, sans-serif;"></div>
+
+        <!-- Active Queue / Processor Section -->
+        <div id="processor-section" class="space-y-6 mt-8">
+            <div id="controls-card" class="glass rounded-2xl p-6 shadow-xl hidden border border-slate-800">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h3 id="queue-title" class="text-lg font-bold text-white">Processed Queue</h3>
+                        <p id="queue-subtitle" class="text-xs text-slate-400">Adjust settings, click convert, and download results below.</p>
+                    </div>
+                    <div id="global-actions" class="flex items-center space-x-3">
+                        <button id="btn-download-all" onclick="downloadAllFiles()" class="hidden px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm transition-all shadow-lg flex items-center space-x-2">
+                            <i class="fa-solid fa-file-zipper"></i>
+                            <span>Download All as ZIP</span>
+                        </button>
+                        <button onclick="clearQueue()" class="px-4 py-2.5 rounded-xl bg-stone-200 dark:bg-slate-800 hover:bg-stone-300 dark:hover:bg-slate-700 text-stone-800 dark:text-slate-300 font-medium text-sm transition-all border border-stone-300 dark:border-slate-700">
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+                <div id="file-items-list" class="space-y-4"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass border-t border-slate-800 dark:border-slate-800 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-stone-500 dark:text-slate-400">
+            <p>Jaideep's Converter &copy; 2026. Built for high performance & local privacy.</p>
+            <p class="mt-2 sm:mt-0 font-medium bg-gradient-to-r from-emerald-700 to-teal-700 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
+                Developed by Jaideep Prabhu
+            </p>
+        </div>
+    </footer>
+
+    <!-- Core Logic Script & PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                const swCode = `self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });`;
+                const blob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(() => {});
+            });
+        }
+
+        let fileQueue = [];
+        let globalImgQuality = 0.80;
+        let globalImgScale = 1.00;
+        let globalDocQuality = 0.75;
+        let isDarkMode = true;
+
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            const htmlEl = document.documentElement;
+            const iconEl = document.getElementById('theme-icon');
+            if (isDarkMode) {
+                htmlEl.classList.add('dark');
+                htmlEl.classList.remove('light');
+                iconEl.className = 'fa-solid fa-sun';
+                showToast('Switched to Dark Mode', 'info');
+            } else {
+                htmlEl.classList.remove('dark');
+                htmlEl.classList.add('light');
+                iconEl.className = 'fa-solid fa-moon';
+                showToast('Switched to Light Mode', 'info');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            let bg = 'bg-slate-800 text-slate-100 border-slate-700';
+            let icon = 'fa-circle-info text-blue-400';
+            if (type === 'success') { bg = 'bg-emerald-950/90 text-emerald-200 border-emerald-800/60'; icon = 'fa-circle-check text-emerald-400'; }
+            if (type === 'error') { bg = 'bg-rose-950/90 text-rose-200 border-rose-800/60'; icon = 'fa-triangle-exclamation text-rose-400'; }
+
+            toast.className = `flex items-center space-x-3 px-4 py-3 rounded-xl border ${bg} shadow-xl backdrop-blur-md pointer-events-auto transition-all animate-bounce`;
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i><span class="text-xs font-medium">${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function switchTab(tab) {
+            ['converter', 'img-compressor', 'doc-compressor', 'base64'].forEach(t => {
+                const sec = document.getElementById(`section-${t}`);
+                const btn = document.getElementById(`tab-${t}`);
+                if (sec) sec.classList.add('hidden');
+                if (btn) btn.className = "px-4 py-2.5 rounded-xl font-semibold text-sm transition-all bg-stone-200 dark:bg-slate-900 text-stone-700 dark:text-slate-400 hover:text-emerald-700 dark:hover:text-white border border-stone-300 dark:border-slate-800";
+            });
+            const activeSec = document.getElementById(`section-${tab}`);
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            if (activeSec) activeSec.classList.remove('hidden');
+            if (activeBtn) activeBtn.className = "px-4 py-2.5 rounded-xl font-semibold text-sm transition-all bg-emerald-600 text-white shadow-lg shadow-emerald-600/20";
+        }
+
+        function updateImgCompVal(val) {
+            val = Math.max(1, Math.min(100, parseInt(val) || 80));
+            globalImgQuality = val / 100;
+            document.getElementById('img-comp-slider').value = val;
+            document.getElementById('img-comp-input').value = val;
+        }
+
+        function updateImgScaleVal(val) {
+            val = Math.max(10, Math.min(100, parseInt(val) || 100));
+            globalImgScale = val / 100;
+            document.getElementById('img-scale-slider').value = val;
+            document.getElementById('img-scale-input').value = val;
+        }
+
+        function updateDocCompVal(val) {
+            val = Math.max(10, Math.min(100, parseInt(val) || 75));
+            globalDocQuality = val / 100;
+            document.getElementById('doc-comp-slider').value = val;
+            document.getElementById('doc-comp-input').value = val;
+        }
+
+        setupDropzone('drop-zone-conv', 'file-input-conv', (files) => handleConverterFiles(files));
+        setupDropzone('drop-zone-img', 'file-input-img', (files) => handleImageCompressorFiles(files));
+        setupDropzone('drop-zone-doc', 'file-input-doc', (files) => handleDocCompressorFiles(files));
+
+        function setupDropzone(zoneId, inputId, callback) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+            if (!zone || !input) return;
+            ['dragenter', 'dragover'].forEach(e => zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.add('border-emerald-500', 'bg-slate-900/80'); }));
+            ['dragleave', 'drop'].forEach(e => zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.remove('border-emerald-500', 'bg-slate-900/80'); }));
+            zone.addEventListener('drop', (ev) => callback(ev.dataTransfer.files));
+            input.addEventListener('change', (ev) => { callback(ev.target.files); input.value = ''; });
+        }
+
+        function handleConverterFiles(files) {
+            Array.from(files).forEach(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].includes(ext)) {
+                    processConverterImage(file);
+                } else if (ext === 'docx') {
+                    processDocxFile(file);
+                } else if (ext === 'pdf') {
+                    processPdfFile(file);
+                } else if (['html', 'htm'].includes(ext)) {
+                    processGoogleDocHtmlFile(file);
+                } else {
+                    processTextFile(file);
+                }
+            });
+        }
+
+        function handleImageCompressorFiles(files) {
+            Array.from(files).forEach(file => {
+                if (file.type.startsWith('image/')) queueStandaloneImageCompression(file);
+            });
+        }
+
+        function handleDocCompressorFiles(files) {
+            Array.from(files).forEach(file => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (ext === 'pdf' || ext === 'docx' || ['html', 'htm'].includes(ext)) queueDocCompression(file, ext);
+            });
+        }
+
+        function updateUIState() {
+            const card = document.getElementById('controls-card');
+            const btnDownloadAll = document.getElementById('btn-download-all');
+            if (fileQueue.length > 0) {
+                card.classList.remove('hidden');
+                document.getElementById('queue-title').innerText = `Processed Queue (${fileQueue.length} items)`;
+                if (fileQueue.length > 1) btnDownloadAll.classList.remove('hidden');
+                else btnDownloadAll.classList.add('hidden');
+            } else {
+                card.classList.add('hidden');
+            }
+        }
+
+        function clearQueue() {
+            fileQueue = [];
+            document.getElementById('file-items-list').innerHTML = '';
+            updateUIState();
+            showToast('Queue cleared.', 'info');
+        }
+
+        // ================= BASE64 TOOLS =================
+        function encodeFileToBase64(inputElement) {
+            const file = inputElement.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('b64-enc-output').value = e.target.result;
+                showToast('File encoded to Base64!', 'success');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function copyBase64Output() {
+            const textarea = document.getElementById('b64-enc-output');
+            if (!textarea.value) { showToast('Nothing to copy!', 'error'); return; }
+            navigator.clipboard.writeText(textarea.value);
+            showToast('Base64 string copied to clipboard!', 'success');
+        }
+
+        function decodeBase64ToFile() {
+            const filename = document.getElementById('b64-dec-filename').value.trim() || 'decoded_file.bin';
+            const b64Input = document.getElementById('b64-dec-input').value.trim();
+            if (!b64Input) { showToast('Please enter a Base64 string!', 'error'); return; }
+
+            try {
+                let parts = b64Input.split(',');
+                let data = parts.length > 1 ? parts[1] : parts[0];
+                let mimeMatch = b64Input.match(/^data:([^;]+);base64,/);
+                let mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+
+                let byteChars = atob(data);
+                let byteNumbers = new Array(byteChars.length);
+                for (let i = 0; i < byteChars.length; i++) {
+                    byteNumbers[i] = byteChars.charCodeAt(i);
+                }
+                let byteArray = new Uint8Array(byteNumbers);
+                let blob = new Blob([byteArray], { type: mime });
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`Decoded & Downloaded: ${filename}`, 'success');
+            } catch(err) {
+                showToast('Invalid Base64 string format!', 'error');
+            }
+        }
+
+        // ================= CONVERTER (6-Way Image Support) =================
+        function processConverterImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const id = 'file_' + Math.random().toString(36).substring(2, 9);
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    const itemData = {
+                        id: id, type: 'converter-image', name: file.name, originalSize: file.size,
+                        imgElement: img, targetFormat: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'].includes(ext) ? ext : 'jpg',
+                        outputBlob: null, outputName: file.name
+                    };
+                    fileQueue.push(itemData);
+                    renderConverterImageItem(itemData);
+                    reprocessConverterImage(itemData);
+                    updateUIState();
+                    showToast(`Added image: ${file.name}`, 'success');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function reprocessConverterImage(item) {
+            const canvas = document.createElement('canvas');
+            canvas.width = item.imgElement.width;
+            canvas.height = item.imgElement.height;
+            const ctx = canvas.getContext('2d');
+            
+            if (['jpg', 'jpeg', 'bmp'].includes(item.targetFormat)) {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            ctx.drawImage(item.imgElement, 0, 0);
+
+            let mime = 'image/jpeg';
+            if (item.targetFormat === 'png') mime = 'image/png';
+            if (item.targetFormat === 'webp') mime = 'image/webp';
+            if (item.targetFormat === 'gif') mime = 'image/gif';
+            if (item.targetFormat === 'bmp') mime = 'image/bmp';
+
+            canvas.toBlob((blob) => {
+                if (!blob && (item.targetFormat === 'gif' || item.targetFormat === 'bmp')) {
+                    canvas.toBlob((fallbackBlob) => {
+                        item.outputBlob = fallbackBlob;
+                        updateItemSizeDisplay(item);
+                    }, 'image/png');
+                } else {
+                    item.outputBlob = blob || new Blob([[]], { type: mime });
+                    updateItemSizeDisplay(item);
+                }
+            }, mime, 0.90);
+        }
+
+        function updateItemSizeDisplay(item) {
+            const sizeEl = document.getElementById(`size_${item.id}`);
+            if (sizeEl && item.outputBlob) {
+                sizeEl.innerHTML = `Original: ${formatBytes(item.originalSize)} &rarr; Converted: <span class="text-emerald-600 dark:text-emerald-400 font-semibold">${formatBytes(item.outputBlob.size)}</span>`;
+            }
+        }
+
+        function changeConverterImageFormat(id, fmt) {
+            const item = fileQueue.find(i => i.id === id);
+            if (item) {
+                item.targetFormat = fmt;
+                const baseName = item.name.substring(0, item.name.lastIndexOf('.')) || item.name;
+                item.outputName = `${baseName}.${fmt}`;
+                document.getElementById(`name_${item.id}`).innerText = item.outputName;
+                reprocessConverterImage(item);
+            }
+        }
+
+        // ================= QUEUE STANDALONE COMPRESSORS =================
+        function queueStandaloneImageCompression(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const id = 'file_' + Math.random().toString(36).substring(2, 9);
+                    const itemData = {
+                        id: id, type: 'img-compress-pending', name: file.name, originalSize: file.size,
+                        imgElement: img, outputBlob: null, outputName: `compressed_${file.name}`
+                    };
+                    fileQueue.push(itemData);
+                    renderPendingCompressionItem(itemData, 'Image & Resizer');
+                    updateUIState();
+                    showToast(`Queued image: ${file.name}`, 'success');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function queueDocCompression(file, ext) {
+            const id = 'file_' + Math.random().toString(36).substring(2, 9);
+            const itemData = {
+                id: id, type: 'doc-compress-pending', name: file.name, originalSize: file.size,
+                fileObj: file, ext: ext, outputBlob: null, outputName: `${file.name.split('.')[0]}_compressed.pdf`
+            };
+            fileQueue.push(itemData);
+            renderPendingCompressionItem(itemData, 'Document / PDF');
+            updateUIState();
+            showToast(`Queued document: ${file.name}`, 'success');
+        }
+
+        function executeCompression(id) {
+            const item = fileQueue.find(i => i.id === id);
+            if (!item) return;
+
+            showToast('Compressing file...', 'info');
+            if (item.type === 'img-compress-pending') {
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(item.imgElement.width * globalImgScale);
+                canvas.height = Math.round(item.imgElement.height * globalImgScale);
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(item.imgElement, 0, 0, canvas.width, canvas.height);
+
+                canvas.toBlob((blob) => {
+                    item.outputBlob = blob;
+                    item.type = 'img-compress-done';
+                    renderDoneCompressionItem(item);
+                    showToast('Image compression & resizing complete!', 'success');
+                }, 'image/jpeg', globalImgQuality);
+            } else if (item.type === 'doc-compress-pending') {
+                if (item.ext === 'pdf') {
+                    const reader = new FileReader();
+                    reader.onload = async function(e) {
+                        try {
+                            const pdf = await pdfjsLib.getDocument(new Uint8Array(e.target.result)).promise;
+                            const { jsPDF } = window.jspdf;
+                            const newPdf = new jsPDF('p', 'mm', 'a4');
+                            for (let i = 1; i <= pdf.numPages; i++) {
+                                if (i > 1) newPdf.addPage();
+                                const page = await pdf.getPage(i);
+                                const vp = page.getViewport({ scale: globalDocQuality * 1.5 });
+                                const canvas = document.createElement('canvas');
+                                canvas.height = vp.height; canvas.width = vp.width;
+                                await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                                const imgData = canvas.toDataURL('image/jpeg', globalDocQuality);
+                                newPdf.addImage(imgData, 'JPEG', 0, 0, 210, (canvas.height * 210) / canvas.width);
+                            }
+                            item.outputBlob = newPdf.output('blob');
+                            item.type = 'doc-compress-done';
+                            renderDoneCompressionItem(item);
+                            showToast('PDF compression complete!', 'success');
+                        } catch(err) { showToast('Error compressing PDF', 'error'); }
+                    };
+                    reader.readAsArrayBuffer(item.fileObj);
+                } else {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const processContent = async (htmlText) => {
+                            const container = document.getElementById('render-container');
+                            container.innerHTML = htmlText;
+                            const canvas = await html2canvas(container, { scale: globalDocQuality * 1.5, useCORS: true });
+                            const { jsPDF } = window.jspdf;
+                            const pdf = new jsPDF('p', 'mm', 'a4');
+                            pdf.addImage(canvas.toDataURL('image/jpeg', globalDocQuality), 'JPEG', 0, 0, 210, (canvas.height * 210) / canvas.width);
+                            container.innerHTML = '';
+                            item.outputBlob = pdf.output('blob');
+                            item.type = 'doc-compress-done';
+                            renderDoneCompressionItem(item);
+                            showToast('Document compression complete!', 'success');
+                        };
+
+                        if (item.ext === 'docx') {
+                            mammoth.convertToHtml({ arrayBuffer: e.target.result }).then(res => processContent(res.value || "")).catch(() => showToast('Error processing Word doc', 'error'));
+                        } else {
+                            processContent(e.target.result);
+                        }
+                    };
+                    if (item.ext === 'docx') reader.readAsArrayBuffer(item.fileObj);
+                    else reader.readAsText(item.fileObj);
+                }
+            }
+        }
+
+        // ================= DOCUMENT / GOOGLE DOC CONVERTERS =================
+        function processDocxFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                mammoth.convertToHtml({ arrayBuffer: e.target.result }).then(res => addDocToQueue(file, res.value || "", 'doc-converter')).catch(() => addDocToQueue(file, "<p>Error reading docx</p>", 'doc-converter'));
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processPdfFile(file) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const pdf = await pdfjsLib.getDocument(new Uint8Array(e.target.result)).promise;
+                    let html = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const vp = page.getViewport({ scale: 1.2 });
+                        const canvas = document.createElement('canvas');
+                        canvas.height = vp.height; canvas.width = vp.width;
+                        await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+                        html += `<table width="100%" align="center" style="border:none;background:#fff;"><tr style="border:none;"><td align="center" style="border:none;background:#fff;"><img src="${canvas.toDataURL('image/png')}" style="max-width:90%;height:auto;display:block;margin:0 auto;" /></td></tr></table>`;
+                    }
+                    addDocToQueue(file, html, 'doc-converter');
+                } catch(err) { addDocToQueue(file, "<p>Error reading PDF</p>", 'doc-converter'); }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processGoogleDocHtmlFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                addDocToQueue(file, e.target.result, 'doc-converter');
+            };
+            reader.readAsText(file);
+        }
+
+        function processTextFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const html = e.target.result.split('\n').map(l => `<p>${l || '&nbsp;'}</p>`).join('');
+                addDocToQueue(file, html, 'doc-converter');
+            };
+            reader.readAsText(file);
+        }
+
+        function addDocToQueue(file, htmlContent, mode) {
+            const id = 'file_' + Math.random().toString(36).substring(2, 9);
+            const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            const itemData = {
+                id: id, type: 'document', mode: mode, name: file.name, originalSize: file.size,
+                htmlContent: htmlContent, targetDocFormat: 'pdf', outputName: `${baseName}_converted.pdf`
+            };
+            fileQueue.push(itemData);
+            renderDocQueueItem(itemData);
+            updateUIState();
+            showToast(`Loaded: ${file.name}`, 'success');
+        }
+
+        function changeDocOutputFormat(id, fmt) {
+            const item = fileQueue.find(i => i.id === id);
+            if (item) {
+                item.targetDocFormat = fmt;
+                const baseName = item.name.substring(0, item.name.lastIndexOf('.')) || item.name;
+                item.outputName = `${baseName}_converted.${fmt === 'doc' ? 'doc' : (fmt === 'html' ? 'html' : 'pdf')}`;
+                document.getElementById(`doc_name_${id}`).innerText = item.outputName;
+            }
+        }
+
+        // ================= RENDERING QUEUE ITEMS =================
+        function renderConverterImageItem(item) {
+            const list = document.getElementById('file-items-list');
+            const div = document.createElement('div');
+            div.id = `item_${item.id}`;
+            div.className = "p-4 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-stone-300 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4";
+            div.innerHTML = `
+                <div class="flex items-center space-x-4 w-full sm:w-auto">
+                    <div class="w-12 h-12 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-file-image"></i></div>
+                    <div class="min-w-0 flex-grow">
+                        <p id="name_${item.id}" class="text-sm font-semibold text-stone-900 dark:text-white truncate">${item.outputName}</p>
+                        <p id="size_${item.id}" class="text-xs text-stone-500 dark:text-slate-400 mt-0.5">Ready for conversion</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                    <select onchange="changeConverterImageFormat('${item.id}', this.value)" class="bg-white dark:bg-slate-950 text-stone-800 dark:text-slate-300 text-xs px-3 py-2 rounded-lg border border-stone-300 dark:border-slate-800 focus:outline-none">
+                        <option value="jpg" ${item.targetFormat==='jpg'?'selected':''}>JPG</option>
+                        <option value="jpeg" ${item.targetFormat==='jpeg'?'selected':''}>JPEG</option>
+                        <option value="png" ${item.targetFormat==='png'?'selected':''}>PNG</option>
+                        <option value="webp" ${item.targetFormat==='webp'?'selected':''}>WebP</option>
+                        <option value="gif" ${item.targetFormat==='gif'?'selected':''}>GIF</option>
+                        <option value="bmp" ${item.targetFormat==='bmp'?'selected':''}>BMP</option>
+                    </select>
+                    <button onclick="downloadSingleItem('${item.id}')" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all shadow-md flex items-center space-x-1.5">
+                        <i class="fa-solid fa-download"></i><span>Convert & Download</span>
+                    </button>
+                    <button onclick="removeItem('${item.id}')" class="p-2 text-stone-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+                </div>`;
+            list.appendChild(div);
+        }
+
+        function renderPendingCompressionItem(item, label) {
+            const list = document.getElementById('file-items-list');
+            const div = document.createElement('div');
+            div.id = `item_${item.id}`;
+            div.className = "p-4 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-stone-300 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4";
+            div.innerHTML = `
+                <div class="flex items-center space-x-4 w-full sm:w-auto">
+                    <div class="w-12 h-12 rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-compress"></i></div>
+                    <div class="min-w-0 flex-grow">
+                        <p class="text-sm font-semibold text-stone-900 dark:text-white truncate">${item.name}</p>
+                        <p id="size_${item.id}" class="text-xs text-stone-500 dark:text-slate-400 mt-0.5">Size: ${formatBytes(item.originalSize)} &bull; Ready to compress (${label})</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3 w-full sm:w-auto justify-end" id="action_area_${item.id}">
+                    <button onclick="executeCompression('${item.id}')" class="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold transition-all shadow-md flex items-center space-x-1.5">
+                        <i class="fa-solid fa-sliders"></i><span>Compress Now</span>
+                    </button>
+                    <button onclick="removeItem('${item.id}')" class="p-2 text-stone-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+                </div>`;
+            list.appendChild(div);
+        }
+
+        function renderDoneCompressionItem(item) {
+            const area = document.getElementById(`action_area_${item.id}`);
+            if (area) {
+                area.innerHTML = `
+                    <button onclick="downloadSingleItem('${item.id}')" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all shadow-md flex items-center space-x-1.5">
+                        <i class="fa-solid fa-download"></i><span>Download Compressed</span>
+                    </button>
+                    <button onclick="removeItem('${item.id}')" class="p-2 text-stone-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+                `;
+            }
+            const sizeEl = document.getElementById(`size_${item.id}`);
+            if (sizeEl) {
+                sizeEl.innerHTML = `Original: ${formatBytes(item.originalSize)} &rarr; Compressed: <span class="text-emerald-600 dark:text-emerald-400 font-semibold">${formatBytes(item.outputBlob.size)}</span>`;
+            }
+        }
+
+        function renderDocQueueItem(item) {
+            const list = document.getElementById('file-items-list');
+            const div = document.createElement('div');
+            div.id = `item_${item.id}`;
+            div.className = "p-4 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-stone-300 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4";
+            div.innerHTML = `
+                <div class="flex items-center space-x-4 w-full sm:w-auto">
+                    <div class="w-12 h-12 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-file-lines"></i></div>
+                    <div class="min-w-0 flex-grow">
+                        <p id="doc_name_${item.id}" class="text-sm font-semibold text-stone-900 dark:text-white truncate">${item.outputName}</p>
+                        <p class="text-xs text-stone-500 dark:text-slate-400 mt-0.5">Size: ${formatBytes(item.originalSize)} &bull; Word, PDF, or Google Doc</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                    <select onchange="changeDocOutputFormat('${item.id}', this.value)" class="bg-white dark:bg-slate-950 text-stone-800 dark:text-slate-300 text-xs px-3 py-2 rounded-lg border border-stone-300 dark:border-slate-800 focus:outline-none">
+                        <option value="pdf" selected>PDF</option>
+                        <option value="doc">Word (.doc)</option>
+                        <option value="html">Google Doc / HTML</option>
+                    </select>
+                    <button onclick="convertDocument('${item.id}')" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-md flex items-center space-x-1.5">
+                        <i class="fa-solid fa-download"></i><span>Convert & Download</span>
+                    </button>
+                    <button onclick="removeItem('${item.id}')" class="p-2 text-stone-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+                </div>`;
+            list.appendChild(div);
+        }
+
+        // ================= DOWNLOADS =================
+        function downloadSingleItem(id) {
+            const item = fileQueue.find(i => i.id === id);
+            if (!item || !item.outputBlob) return;
+            const url = URL.createObjectURL(item.outputBlob);
+            const a = document.createElement('a');
+            a.href = url; a.download = item.outputName;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`Downloaded: ${item.outputName}`, 'success');
+        }
+
+        async function convertDocument(id) {
+            const item = fileQueue.find(i => i.id === id);
+            if (!item) return;
+
+            if (item.targetDocFormat === 'doc') {
+                showToast('Generating Word document...', 'info');
+                const wordContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><style>body{margin:0.3in;text-align:center;background:#fff;}table{margin:0 auto;border:none;background:#fff;}td{border:none!important;padding:0!important;background:#fff;}img{max-width:90%;height:auto;display:block;margin:0 auto;border:none;}</style></head><body>${item.htmlContent}</body></html>`;
+                const blob = new Blob(['\ufeff' + wordContent], { type: 'application/msword' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = item.outputName;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`Converted & Downloaded: ${item.outputName}`, 'success');
+            } else if (item.targetDocFormat === 'html') {
+                showToast('Generating Google Doc compatible HTML...', 'info');
+                const blob = new Blob([item.htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = item.outputName;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`Converted & Downloaded: ${item.outputName}`, 'success');
+            } else {
+                showToast('Generating PDF layout...', 'info');
+                const container = document.getElementById('render-container');
+                container.innerHTML = item.htmlContent;
+                try {
+                    const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 210, (canvas.height * 210) / canvas.width);
+                    pdf.save(item.outputName);
+                    showToast(`Converted & Downloaded PDF: ${item.outputName}`, 'success');
+                } catch(e) { showToast('Error generating PDF', 'error'); }
+                container.innerHTML = '';
+            }
+        }
+
+        async function downloadAllFiles() {
+            if (fileQueue.length === 0) return;
+            const zip = new JSZip();
+            for (const item of fileQueue) {
+                if (item.outputBlob) {
+                    zip.file(item.outputName, item.outputBlob);
+                } else if (item.htmlContent) {
+                    const wordContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><style>body{margin:0.3in;text-align:center;background:#fff;}table{margin:0 auto;border:none;background:#fff;}td{border:none!important;padding:0!important;background:#fff;}img{max-width:90%;height:auto;display:block;margin:0 auto;border:none;}</style></head><body>${item.htmlContent}</body></html>`;
+                    zip.file(item.outputName, new Blob(['\ufeff' + wordContent], { type: 'application/msword' }));
+                }
+            }
+            const content = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a'); a.href = url; a.download = "Jaideeps_Converter_Export.zip";
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('All files downloaded as ZIP!', 'success');
+        }
+
+        function removeItem(id) {
+            fileQueue = fileQueue.filter(i => i.id !== id);
+            const el = document.getElementById(`item_${id}`);
+            if (el) el.remove();
+            updateUIState();
+            showToast('Item removed.', 'info');
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
